@@ -2,7 +2,7 @@
 an easy event loop,support multi-thread,you can use in linux os
 * support fd event
 *  support timer
-* support using in multhi-thread, Use one event driven per thread
+* support using in multi-thread, Use one event driven per thread
 
 # 1.build with cmake
 camke .
