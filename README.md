@@ -1,8 +1,8 @@
 # libeloop
 an easy event loop,support multi-thread,you can use in linux os
 * support fd event
-*  support timer
-* support using in multi-thread, Use one event driven per thread
+* support timer
+* support using in multi-thread, use one event driven per thread
 
 # 1.build with cmake
 camke .
