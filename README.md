@@ -15,7 +15,7 @@ make install
 you can leran from example
 
 simple echo server code:
-``` 
+``` c
 #include "eloop.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
