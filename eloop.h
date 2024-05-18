@@ -1,7 +1,7 @@
 /*
  * eloop - easy event loop implementation
  *
- * Copyright (C) 2019-2020 huang <https://github.com/huangyajie>
+ * Copyright (C) 2019-2024 huang <https://github.com/huangyajie>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,8 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef _ELOOP_H__
-#define _ELOOP_H__
+#ifndef _ELOOP_H_
+#define _ELOOP_H_
+
+#ifdef __cpluscplus
+extern "C" {
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -32,12 +36,25 @@
 #include <signal.h>
 #include "list.h"
 
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#define USE_KQUEUE
+#else
+#define USE_EPOLL
+#endif
+
 
 
 #define ELOOP_READ		(1 << 0)
 #define ELOOP_WRITE		(1 << 1)
 #define ELOOP_EDGE_TRIGGER	(1 << 2)
 #define ELOOP_BLOCKING		(1 << 3)
+
+/* internal flags */
+#ifdef USE_KQUEUE
+#define ELOOP_EDGE_DEFER	(1 << 5)
+#endif
+/* internal flags */
+#define ELOOP_ERROR_CB		(1 << 6)
 
 enum
 {
@@ -104,5 +121,9 @@ int eloop_timeout_cancel(struct eloop_base* base,struct eloop_timeout *timeout);
 //get timer ramaining time (ms)
 int eloop_timeout_remaining(struct eloop_base* base,struct eloop_timeout *timeout);
 
+
+#ifdef __cpluscplus
+}
+#endif
 
 #endif

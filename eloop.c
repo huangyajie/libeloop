@@ -1,7 +1,7 @@
 /*
  * eloop - easy event loop implementation
  *
- * Copyright (C) 2019-2020 huang <https://github.com/huangyajie>
+ * Copyright (C) 2019-2024 huang <https://github.com/huangyajie>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,19 +18,26 @@
 
 #include <fcntl.h>
 #include <sys/types.h>
-#include <sys/epoll.h>
 #include "eloop.h"
 
+#ifdef USE_KQUEUE
+#include <sys/event.h>
+#endif
+#ifdef USE_EPOLL
+#include <sys/epoll.h>
+#endif
+
+
+#ifdef USE_EPOLL
 //if does not define EPOLLRDHUP for Linux >= 2.6.17
 #ifndef EPOLLRDHUP
 #define EPOLLRDHUP 0x2000
 #endif
+#endif 
 
-/* internal flags */
-#define ELOOP_ERROR_CB		(1 << 6)
 
 #define ELOOP_INIT_SIZE  1024
-#define ELOOP_MAX_EVENTS 16
+#define ELOOP_MAX_EVENTS 1024
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
@@ -51,7 +58,12 @@ struct eloop_base
 	int cur_nfds;
 	bool eloop_cancelled;
 	struct eloop_fd_event cur_fds[ELOOP_MAX_EVENTS];
+	#ifdef USE_KQUEUE
+	struct kevent events[ELOOP_MAX_EVENTS];
+	#endif 
+	#ifdef USE_EPOLL
 	struct epoll_event events[ELOOP_MAX_EVENTS];
+	#endif
 	struct list_head timeouts;
 };
 
@@ -63,15 +75,30 @@ struct eloop_base* eloop_init(void)
 	if(base == NULL)
 		return NULL;
 
-	base->poll_fd = epoll_create(ELOOP_INIT_SIZE);
-	if (base < 0)
+	#ifdef USE_KQUEUE
+	struct timespec timeout = { 0, 0 };
+	struct kevent ev = {};
+	base->poll_fd = kqueue();
+	if (base->poll_fd < 0)
 	{
 		free(base);
 		base = NULL;
 		return NULL;
 	}
-		
+	EV_SET(&ev, SIGCHLD, EVFILT_SIGNAL, EV_ADD, 0, 0, 0);
+	kevent(base->poll_fd, &ev, 1, NULL, 0, &timeout);
+	#endif
+
+    #ifdef USE_EPOLL
+	base->poll_fd = epoll_create(ELOOP_INIT_SIZE);
+	if (base->poll_fd < 0)
+	{
+		free(base);
+		base = NULL;
+		return NULL;
+	}		
 	fcntl(base->poll_fd, F_SETFD, fcntl(base->poll_fd, F_GETFD) | FD_CLOEXEC);
+	#endif
 
 	//init timer
 	INIT_LIST_HEAD(&base->timeouts);
@@ -79,11 +106,69 @@ struct eloop_base* eloop_init(void)
 	return base;
 }
 
+#ifdef USE_KQUEUE
+static uint16_t get_flags(unsigned int flags, unsigned int mask)
+{
+	uint16_t kflags = 0;
+
+	if (!(flags & mask))
+		return EV_DELETE;
+
+	kflags = EV_ADD;
+	if (flags & ELOOP_EDGE_TRIGGER)
+		kflags |= EV_CLEAR;
+
+	return kflags;
+}
+#endif
+
 static int register_poll(struct eloop_base* base,struct eloop_fd *efd, unsigned int flags)
 {
 	if((base == NULL) || (efd == NULL))
 		return ELOOP_FAIL;
 	
+	#ifdef USE_KQUEUE
+	struct timespec timeout = { 0, 0 };
+	struct kevent ev[2];
+	int nev = 0;
+	unsigned int fl = 0;
+	unsigned int changed;
+	uint16_t kflags;
+
+	if (flags & ELOOP_EDGE_TRIGGER)
+		flags |= ELOOP_EDGE_DEFER;
+	else
+		flags &= ~ELOOP_EDGE_DEFER;
+
+	if (flags & ELOOP_EDGE_DEFER)
+		flags &= ~ELOOP_EDGE_TRIGGER;
+
+	changed = flags ^ efd->flags;
+	if (changed & ELOOP_EDGE_TRIGGER)
+		changed |= flags;
+
+	if (!changed)
+		return ELOOP_SUCCESS;
+
+	if (changed & ELOOP_READ) 
+	{
+		kflags = get_flags(flags, ELOOP_READ);
+		EV_SET(&ev[nev++], efd->fd, EVFILT_READ, kflags, 0, 0, efd);
+	}
+
+	if (changed & ELOOP_WRITE) 
+	{
+		kflags = get_flags(flags, ELOOP_WRITE);
+		EV_SET(&ev[nev++], efd->fd, EVFILT_WRITE, kflags, 0, 0, efd);
+	}
+
+	if (!flags)
+		fl |= EV_DELETE;
+
+	return kevent(base->poll_fd, ev, nev, NULL, fl, &timeout); 
+	#endif
+
+	#ifdef USE_EPOLL
 	struct epoll_event ev;
 	int op = efd->registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
 
@@ -103,6 +188,7 @@ static int register_poll(struct eloop_base* base,struct eloop_fd *efd, unsigned 
 	efd->flags = flags;
 
 	return epoll_ctl(base->poll_fd, op, efd->fd, &ev);
+	#endif
 }
 
 static int __eloop_fd_delete(struct eloop_base* base,struct eloop_fd *efd)
@@ -110,8 +196,14 @@ static int __eloop_fd_delete(struct eloop_base* base,struct eloop_fd *efd)
 	if((base == NULL) || (efd == NULL))
 		return ELOOP_FAIL;
 
+	#ifdef USE_KQUEUE
+	return register_poll(base,efd, 0);
+	#endif
+
+	#ifdef USE_EPOLL
 	efd->flags = 0;
 	return epoll_ctl(base->poll_fd, EPOLL_CTL_DEL, efd->fd, 0);
+	#endif
 }
 
 //del fd event from eloop
@@ -173,8 +265,54 @@ static int eloop_fetch_events(struct eloop_base* base,int timeout)
 		return ELOOP_FAIL;
 	int n, nfds;
 
+	#ifdef USE_KQUEUE
+	struct timespec ts;
+	if (timeout >= 0) {
+		ts.tv_sec = timeout / 1000;
+		ts.tv_nsec = (timeout % 1000) * 1000000;
+	}
+
+	nfds = kevent(base->poll_fd, NULL, 0, base->events, ARRAY_SIZE(base->events), timeout >= 0 ? &ts : NULL);
+	for (n = 0; n < nfds; n++) 
+	{
+		struct eloop_fd_event *cur = &base->cur_fds[n];
+		struct eloop_fd *u = base->events[n].udata;
+		unsigned int ev = 0;
+
+		cur->fd = u;
+		if (!u)
+			continue;
+
+		if (base->events[n].flags & EV_ERROR) 
+		{
+			u->error = true;
+			if (!(u->flags & ELOOP_ERROR_CB))
+				eloop_fd_delete(base,u);
+		}
+
+		if(base->events[n].filter == EVFILT_READ)
+			ev |= ELOOP_READ;
+		else if (base->events[n].filter == EVFILT_WRITE)
+			ev |= ELOOP_WRITE;
+
+		if (base->events[n].flags & EV_EOF)
+			u->eof = true;
+		else if (!ev)
+			cur->fd = NULL;
+
+		cur->events = ev;
+		if (u->flags & ELOOP_EDGE_DEFER) 
+		{
+			u->flags &= ~ELOOP_EDGE_DEFER;
+			u->flags |= ELOOP_EDGE_TRIGGER;
+			register_poll(base,u, u->flags);
+		}
+	}
+	#endif 
+
+	#ifdef USE_ELOOP
 	nfds = epoll_wait(base->poll_fd, base->events, ARRAY_SIZE(base->events), timeout);
-	for (n = 0; n < nfds; ++n) 
+	for (n = 0; n < nfds; n++) 
 	{
 		struct eloop_fd_event *cur = &base->cur_fds[n];
 		struct eloop_fd *u = base->events[n].data.ptr;
@@ -208,6 +346,7 @@ static int eloop_fetch_events(struct eloop_base* base,int timeout)
 
 		cur->events = ev;
 	}
+	#endif 
 
 	return nfds;
 }
@@ -247,7 +386,6 @@ static void eloop_run_events(struct eloop_base* base,int timeout)
 
 		fd->cb(base,fd, events);
 
-		return;
 	}
 }
 
