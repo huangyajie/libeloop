@@ -305,7 +305,7 @@ int eloop_timeout_set(struct eloop_base* base,struct eloop_timeout *timeout, int
 	struct timeval *time = &timeout->time;
 
 	if (timeout->pending)
-		eloop_timeout_cancel(timeout);
+		eloop_timeout_cancel(base,timeout);
 
 	eloop_gettime(&timeout->time);
 
@@ -321,9 +321,9 @@ int eloop_timeout_set(struct eloop_base* base,struct eloop_timeout *timeout, int
 }
 
 //cancel timer
-int eloop_timeout_cancel(struct eloop_timeout *timeout)
+int eloop_timeout_cancel(struct eloop_base* base,struct eloop_timeout *timeout)
 {
-	if(timeout == NULL)
+	if((base == NULL) || (timeout == NULL) )
 		return ELOOP_FAIL;
 
 	if (!timeout->pending)
@@ -336,9 +336,9 @@ int eloop_timeout_cancel(struct eloop_timeout *timeout)
 }
 
 //get timer ramaining time (ms)
-int eloop_timeout_remaining(struct eloop_timeout *timeout)
+int eloop_timeout_remaining(struct eloop_base* base,struct eloop_timeout *timeout)
 {
-	if(timeout == NULL)
+	if((base == NULL) || (timeout == NULL) )
 		return ELOOP_FAIL;
 
 	struct timeval now;
@@ -385,7 +385,7 @@ static void eloop_process_timeouts(struct eloop_base* base,struct timeval *tv)
 		if (tv_diff(&t->time, tv) > 0)
 			break;
 
-		eloop_timeout_cancel(t);
+		eloop_timeout_cancel(base,t);
 		if (t->cb)
 			t->cb(base,t);
 	}
@@ -398,7 +398,7 @@ static void eloop_clear_timeouts(struct eloop_base* base)
 	struct eloop_timeout *t, *tmp;
 
 	list_for_each_entry_safe(t, tmp, &base->timeouts, list)
-		eloop_timeout_cancel(t);
+		eloop_timeout_cancel(base,t);
 }
 
 

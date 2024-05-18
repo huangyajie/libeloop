@@ -7,7 +7,7 @@ static void timer_cb (struct eloop_base* base,struct eloop_timeout *t)
     eloop_timeout_set(base,t,1000);
 
     if(i == 10)
-        eloop_timeout_cancel(t);
+        eloop_timeout_cancel(base,t);
 }
 
 int main(int argc, char const *argv[])
