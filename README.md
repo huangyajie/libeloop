@@ -1,8 +1,10 @@
 # libeloop
-an easy event loop,support multi-thread,you can use in linux os
+an easy event loop,support multi-thread,you can use in linux,macos,freebsd
 * support fd event
 * support timer
 * support using in multi-thread, use one event driven per thread
+* linux use epoll, macos and freebsd use kqueue
+
 
 # 1.build with cmake
 camke .
