@@ -66,7 +66,7 @@ static int tcp_server_init(int port)
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0)
-            return -1;
+        return -1;
 
     
     const int one = 1;
@@ -101,7 +101,11 @@ int main(int argc, char const *argv[])
 
     int sfd = tcp_server_init(5678);
     if(sfd < 0)
+    {
+        eloop_done(base);
         return -1;
+    }
+        
     
     struct eloop_fd efd;
     memset(&efd,0,sizeof(efd));
