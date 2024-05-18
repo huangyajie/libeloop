@@ -99,10 +99,10 @@ int eloop_timeout_set(struct eloop_base* base,struct eloop_timeout *timeout, int
 
 
 //cancel timer
-int eloop_timeout_cancel(struct eloop_timeout *timeout);
+int eloop_timeout_cancel(struct eloop_base* base,struct eloop_timeout *timeout);
 
 //get timer ramaining time (ms)
-int eloop_timeout_remaining(struct eloop_timeout *timeout);
+int eloop_timeout_remaining(struct eloop_base* base,struct eloop_timeout *timeout);
 
 
 #endif
