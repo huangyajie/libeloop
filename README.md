@@ -1,5 +1,5 @@
 # libeloop
-an easy event loop,support multi-thread,you can use in linux,macos,freebsd
+an easy event loop,support multi-thread,you can use in unix-like os ,such as linux,macos,freebsd
 * support fd event
 * support timer
 * support using in multi-thread, use one event driven per thread
@@ -45,13 +45,13 @@ static void accept_cb (struct eloop_base* base,struct eloop_fd *efd, unsigned in
     fprintf(stderr,"new connection\n");
 
     struct sockaddr_in sin;
-	unsigned int sl = sizeof(struct sockaddr_in);
-	int cfd = accept(efd->fd, (struct sockaddr *) &sin, &sl);
-	if (cfd < 0) 
+    unsigned int sl = sizeof(struct sockaddr_in);
+    int cfd = accept(efd->fd, (struct sockaddr *) &sin, &sl);
+    if (cfd < 0) 
     {
-		fprintf(stderr, "Accept failed\n");
-		return;
-	}
+        fprintf(stderr, "Accept failed\n");
+        return;
+    }
 
     struct eloop_fd *pfd = (struct eloop_fd *)calloc(1,sizeof(*pfd));
     pfd->fd = cfd;
