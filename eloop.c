@@ -37,7 +37,7 @@
 
 
 #define ELOOP_INIT_SIZE  1024
-#define ELOOP_MAX_EVENTS 1024
+#define ELOOP_MAX_EVENTS 64
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
