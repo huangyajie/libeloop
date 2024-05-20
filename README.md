@@ -69,7 +69,6 @@ static int tcp_server_init(int port)
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0)
         return -1;
-
     
     const int one = 1;
     setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
