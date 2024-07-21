@@ -310,7 +310,7 @@ static int eloop_fetch_events(struct eloop_base* base,int timeout)
 	}
 	#endif 
 
-	#ifdef USE_ELOOP
+	#ifdef USE_EPOLL
 	nfds = epoll_wait(base->poll_fd, base->events, ARRAY_SIZE(base->events), timeout);
 	for (n = 0; n < nfds; n++) 
 	{

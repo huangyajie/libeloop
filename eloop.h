@@ -78,6 +78,7 @@ struct eloop_fd
 	bool error; //fd is occur error or not ,caller does not care
 	bool registered; //fd is registered or not,caller does not care
 	uint8_t flags; //event type ,such as ELOOP_READ
+	void* priv; //caller privite data
 };
 
 //timer event structure
