@@ -56,6 +56,7 @@ struct eloop_base
 	int poll_fd;
 	int cur_fd;
 	int cur_nfds;
+	int cur_trigger_nfds;
 	bool eloop_cancelled;
 	struct eloop_fd_event cur_fds[ELOOP_MAX_EVENTS];
 	#ifdef USE_KQUEUE
@@ -367,6 +368,8 @@ static void eloop_run_events(struct eloop_base* base,int timeout)
 		base->cur_nfds = eloop_fetch_events(base,timeout);
 		if (base->cur_nfds < 0)
 			base->cur_nfds = 0;
+
+		base->cur_trigger_nfds = base->cur_nfds;
 	}
 
 	while (base->cur_nfds > 0) 
@@ -596,4 +599,23 @@ int eloop_done(struct eloop_base* base)
 	}
 	
 	return ELOOP_SUCCESS;
+}
+
+int eloop_get_trigger_events(struct eloop_base* base,struct poll_fd* pfd, unsigned int out_sz)
+{
+	if(base == NULL)
+		return ELOOP_FAIL;
+
+	int i = 0;
+	for(i = 0;i < base->cur_trigger_nfds;i++)
+	{
+		if(i > out_sz - 1)
+		{
+			break;
+		}
+		pfd[i].fd = base->cur_fds[i].fd->fd;
+		pfd[i].events = base->cur_fds[i].events;
+	}
+
+	return i;
 }
