@@ -91,6 +91,11 @@ struct eloop_timeout
 	void* priv; //caller privite data
 };
 
+struct poll_fd
+{
+    int fd;
+    unsigned int events;
+};
 
 
 
@@ -122,6 +127,8 @@ int eloop_timeout_cancel(struct eloop_base* base,struct eloop_timeout *timeout);
 //get timer ramaining time (ms)
 int eloop_timeout_remaining(struct eloop_base* base,struct eloop_timeout *timeout);
 
+//get trigger evernts  
+int eloop_get_trigger_events(struct eloop_base* base,struct poll_fd* pfd, unsigned int out_sz);
 
 #ifdef __cpluscplus
 }
